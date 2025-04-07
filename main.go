@@ -43,7 +43,7 @@ var koala = []string{
 	" \\      \\_/      / ",
 	"   \\...__!__.../   ",
 	"        \" mh       ",
-	"   v1.0.2-generic   ",
+	"   v1.0.3-generic   ",
 }
 
 func main() {
@@ -240,10 +240,32 @@ func getSwap() string {
 		return fmt.Sprintf("%sSwap%s: %sDisabled%s", Yellow, Reset, Red, Reset)
 	}
 
-	return fmt.Sprintf("%sSwap%s: %s%d GiB%s / %s%d Gib%s (%.0f%%)",
-		Yellow, Reset, Green, swap.Used,
-		Reset, Cyan, swap.Total, Reset,
-		swap.UsedPercent)
+	// value_used := swap.Used / 10000000
+	// str_used := strconv.FormatUint(value_used, 10)
+
+	// if len(str_used) > 1 {
+	// 	str_used = str_used[:1] + "." + str_used[1:]
+	// } else {
+	// 	str_used = str_used + ".0"
+	// }
+
+	// value_total := swap.Total / 10000000
+	// str_total := strconv.FormatUint(value_total, 10)
+
+	// if len(str_total) > 1 {
+	// 	str_total = str_total[:1] + "." + str_total[1:]
+	// } else {
+	// 	str_total = str_total + ".0"
+	// }
+
+	usedGiB := float64(swap.Used) / (1024 * 1024 * 1024)
+	totalGiB := float64(swap.Total) / (1024 * 1024 * 1024)
+	percent := swap.UsedPercent
+
+	return fmt.Sprintf("%sSwap%s: %s%.2f GiB%s / %s%.2f Gib%s (%.0f%%)",
+		Yellow, Reset, Green, usedGiB,
+		Reset, Cyan, totalGiB, Reset,
+		percent)
 }
 
 // Get info about disks
