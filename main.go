@@ -43,7 +43,7 @@ var koala = []string{
 	" \\      \\_/      / ",
 	"   \\...__!__.../   ",
 	"        \" mh       ",
-	"   v1.0.3-generic   ",
+	"   v1.0.4-generic   ",
 }
 
 func main() {
@@ -72,7 +72,6 @@ func main() {
 	info, _ := host.Info()
 	uptime := time.Duration(info.Uptime) * time.Second
 	cpuInfo, _ := cpu.Info()
-	vmStat, _ := mem.VirtualMemory()
 
 	_hostline := fmt.Sprintf("%s@%s", user.Username, hostname)
 	var _separator string
@@ -118,7 +117,7 @@ func main() {
 		fmt.Sprintf("%sWM:%s %s", Yellow, Reset, getWM()),
 		fmt.Sprintf("%sCPU:%s %s (%d cores)", Yellow, Reset, cpuInfo[0].ModelName, runtime.NumCPU()),
 		fmt.Sprintf("%sGPU:%s %s", Yellow, Reset, getGPU()),
-		fmt.Sprintf("%sRAM:%s %.2f GB / %.2f GB", Yellow, Reset, float64(vmStat.Used)/1e9, float64(vmStat.Total)/1e9),
+		fmt.Sprint(getRam()),
 		fmt.Sprint(getSwap()),
 		fmt.Sprint(getDisks()),
 		fmt.Sprintf("%s███%s███%s███%s███%s███%s███%s███%s███", Black, Red, Green, Yellow, Blue, Purple, Cyan, White),
@@ -228,6 +227,63 @@ func isIgnoredMount(mount string) bool {
 	return false
 }
 
+// Get RAM and RAM type
+func getRam() string {
+	user, _ := user.Current()
+
+	ram, err := mem.VirtualMemory()
+
+	if err != nil || ram.Total == 0 {
+		return fmt.Sprintf("%sRAM%s: %sError%s", Yellow, Reset, Red, Reset)
+	}
+
+	usedGiB := float64(ram.Used) / (1024 * 1024 * 1024)
+	totalGiB := float64(ram.Total) / (1024 * 1024 * 1024)
+	percent := ram.UsedPercent
+
+	if user.Username == "root" {
+		cmd := exec.Command("sudo", "dmidecode", "-t", "memory")
+		output, err := cmd.CombinedOutput()
+
+		if err != nil {
+			return fmt.Sprintf("%sRAM%s: %sError%s", Yellow, Reset, Red, Reset)
+		}
+
+		seen := map[string]bool{}
+		types := []string{}
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "Type:") &&
+				!strings.Contains(line, "Unknown") &&
+				!strings.Contains(line, "Other") &&
+				!strings.Contains(line, "RAM") {
+
+				if !seen[line] {
+					seen[line] = true
+					typePart := strings.TrimPrefix(line, "Type: ")
+					types = append(types, typePart)
+				}
+			}
+		}
+
+		ramType := "Unknown"
+		if len(types) > 0 {
+			ramType = strings.Join(types, ", ")
+		}
+
+		return fmt.Sprintf("%sRAM%s: %s%.2f GiB%s / %s%.2f Gib%s (%.0f%%) - %s%s%s",
+			Yellow, Reset, Green, usedGiB,
+			Reset, Cyan, totalGiB, Reset,
+			percent, Purple, ramType, Reset)
+	}
+
+	return fmt.Sprintf("%sRAM%s: %s%.2f GiB%s / %s%.2f Gib%s (%.0f%%)%s",
+		Yellow, Reset, Green, usedGiB,
+		Reset, Cyan, totalGiB, Reset,
+		percent, Reset)
+}
+
 // Get swap file info
 func getSwap() string {
 	swap, err := mem.SwapMemory()
@@ -239,24 +295,6 @@ func getSwap() string {
 	if swap.Total == 0 {
 		return fmt.Sprintf("%sSwap%s: %sDisabled%s", Yellow, Reset, Red, Reset)
 	}
-
-	// value_used := swap.Used / 10000000
-	// str_used := strconv.FormatUint(value_used, 10)
-
-	// if len(str_used) > 1 {
-	// 	str_used = str_used[:1] + "." + str_used[1:]
-	// } else {
-	// 	str_used = str_used + ".0"
-	// }
-
-	// value_total := swap.Total / 10000000
-	// str_total := strconv.FormatUint(value_total, 10)
-
-	// if len(str_total) > 1 {
-	// 	str_total = str_total[:1] + "." + str_total[1:]
-	// } else {
-	// 	str_total = str_total + ".0"
-	// }
 
 	usedGiB := float64(swap.Used) / (1024 * 1024 * 1024)
 	totalGiB := float64(swap.Total) / (1024 * 1024 * 1024)
